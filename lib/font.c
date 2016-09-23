@@ -137,6 +137,96 @@ gchar** list_mono_or_dot_fonts(int* num) {
 	return fonts;
 }
 
+gchar** list_mono_fonts_ambiguously(int* num) {
+    FcPattern* pat = FcNameParse((FcChar8*)"monospace");
+    if (!pat) {
+        return NULL;
+    }
+
+    FcConfigSubstitute(NULL, pat, FcMatchPattern);
+    FcDefaultSubstitute(pat);
+
+    FcFontSet *fs = FcFontSetCreate ();
+
+    FcResult result;
+    FcFontSet	*font_patterns;
+    int	j;
+    font_patterns = FcFontSort (0, pat, FcFalse, 0, &result);
+
+    if (!font_patterns || font_patterns->nfont == 0) {
+        fputs("No fonts installed on the system\n", stderr);
+        return NULL;
+    }
+    for (j = 0; j < font_patterns->nfont; j++) {
+        FcPattern  *font_pattern;
+
+        font_pattern = FcFontRenderPrepare (NULL, pat, font_patterns->fonts[j]);
+        if (font_pattern)
+            FcFontSetAdd (fs, font_pattern);
+    }
+
+    FcFontSetSortDestroy (font_patterns);
+
+    FcObjectSet *os = FcObjectSetBuild(FC_FAMILY, FC_SPACING, NULL);
+    if (!os) {
+        fprintf(stderr, "Build FcObjectSet Failed\n");
+        FcPatternDestroy(pat);
+        return NULL;
+    }
+
+    gchar** fonts = NULL;
+    int count = 0;
+    for (j = 0; j < fs->nfont; j++) {
+        FcPattern *font = FcPatternFilter (fs->fonts[j], os);
+	    FcChar8* spacing = FcPatternFormat(fs->fonts[j], (FcChar8*)"%{spacing}");
+	    if (strcmp((char*) spacing, "100") == 0 || 
+                strcmp((char*) spacing, "110") == 0 ||
+                strcmp((char*) spacing, "0") == 0 ||
+                spacing == NULL) {
+        FcChar8 *s = FcPatternFormat(font, (FcChar8*)"%{family}");
+        fprintf(stderr, " %s spacing %s\n", s, spacing);
+        if (s) {
+            fonts = realloc(fonts, (count + 1) * sizeof(gchar*));
+            if (fonts == NULL) {
+                fprintf(stderr, "Alloc memory at append %d font info failed\n", count + 1);
+                return NULL;
+            }
+            fonts[count] = malloc(strlen(s) + 1);
+            if (fonts[count] == NULL) {
+                fprintf(stderr, "Malloc %d failed\n", count + 1);
+                return NULL;
+            }
+
+            strcpy(fonts[count], s);
+            count++;
+
+            FcStrFree (s);
+        }
+        }
+
+        FcPatternDestroy (spacing);
+        FcPatternDestroy (font);
+    }
+
+	/* Remove duplicate font family. */
+    int i, k;
+    for (i = 0; i < count; i++) {
+        for (j = i + 1; j < count;) {
+            if (strcmp(fonts[j], fonts[i]) == 0) {
+                for (k = j; k < count; k++) {
+                    fonts[k] = fonts[k + 1];
+                }
+                count--;
+            } else
+                j++;
+        }
+    }
+    *num = count;
+
+    FcFontSetDestroy(fs);
+    return fonts;
+}
+
 gchar* font_match(gchar* family) {
      FcPattern* pat = FcNameParse((FcChar8*)family);
      if (!pat) {

@@ -260,7 +260,7 @@ namespace Widgets {
             content_box.pack_start(font_grid, false, false, 0);
             
 			int num;
-			string[] mono_or_dot_fonts = (string[]) list_mono_or_dot_fonts(out num);
+			string[] mono_or_dot_fonts = (string[]) list_mono_fonts_ambiguously(out num);
 			font_names = new ArrayList<string>();
 			for (int i = 0; i < num; i++) {
 				font_names.add(mono_or_dot_fonts[i]);
